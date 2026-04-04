@@ -4,7 +4,7 @@
 //#define RENODX_UPGRADE_ENABLED
 
 //HDR Tonemap settings
-#define RENODX_HDRTONEMAP_TYPE RENODX_HDRTONEMAP_TYPE_REINHARD //[RENODX_HDRTONEMAP_TYPE_OFF RENODX_HDRTONEMAP_TYPE_REINHARD RENODX_HDRTONEMAP_TYPE_ACES RENODX_HDRTONEMAP_TYPE_GT RENODX_HDRTONEMAP_TYPE_GT7 RENODX_HDRTONEMAP_TYPE_HERMITE RENODX_HDRTONEMAP_TYPE_EXPROLL RENODX_HDRTONEMAP_TYPE_HABLE RENODX_HDRTONEMAP_TYPE_NEUTWO RENODX_HDRTONEMAP_TYPE_FROSTBITE]
+#define RENODX_HDRTONEMAP_TYPE RENODX_HDRTONEMAP_TYPE_REINHARD //[RENODX_HDRTONEMAP_TYPE_OFF RENODX_HDRTONEMAP_TYPE_REINHARD RENODX_HDRTONEMAP_TYPE_ACES RENODX_HDRTONEMAP_TYPE_GT RENODX_HDRTONEMAP_TYPE_GT7 RENODX_HDRTONEMAP_TYPE_HERMITE RENODX_HDRTONEMAP_TYPE_EXPROLL RENODX_HDRTONEMAP_TYPE_HABLE RENODX_HDRTONEMAP_TYPE_NEUTWO RENODX_HDRTONEMAP_TYPE_FROSTBITE RENODX_HDRTONEMAP_TYPE_PSYCHO11]
 
 //Color space expected for each step
 #define RENODX_WORKINGCS_SHADERPACK RENODX_CS_AP1 /* Internal working color space of shaderpack. */
@@ -386,6 +386,7 @@ value.RENODX_INTER_MODE.RENODX_INTER_MODE_HDR10 = HDR10 @ 203nits (BT2020)
 #define RENODX_HDRTONEMAP_TYPE_NEUTWO 9
 #define RENODX_HDRTONEMAP_TYPE_FROSTBITE 10
 #define RENODX_HDRTONEMAP_TYPE_DANIELE 11
+#define RENODX_HDRTONEMAP_TYPE_PSYCHO11 12
 
 //Tonemap: Reinhard
 //nothing 
@@ -2744,31 +2745,6 @@ vec3 ToneMapPass_Hable(vec3 color) {
 }
 #endif
 
-// CUSTOM0 ///////////////////////////////////////////////////////////////////////////
-vec3 ToneMapPass_Custom0(vec3 color) { //TODO: 
-//   float peak = (RENODX_PEAK_BRIGHTNESS. / RENODX_GAME_BRIGHTNESS.);
-//   float shoulder = (RENODX_SHOULDER_START. / RENODX_GAME_BRIGHTNESS.);
-//   float white_clip = RENODX_WHITE_CLIP / RENODX_GAME_BRIGHTNESS;
-// 
-//   color = AP1_TO_BT709_MAT * color;
-//   vec3 colorOk = oklab_from_linear(color);
-//   float percent_max = Rescale(0, 2, 0, 1, colorOk.x);
-//   percent_max = clamp(percent_max, 0, 0.99);
-//   // percent_max = pow(percent_max, 4);
-//   percent_max *= percent_max;
-//   float blowout_strength = 1.f;
-//   float blowout_change = pow(1.f - percent_max, blowout_strength); //just a tiniest for the brightest.
-//   colorOk.yz *= blowout_change;
-//   color = linear_from_oklab(colorOk);
-//   color = BT709_TO_AP1_MAT * color;
-// 
-//   float y = YOrMaxChannelForHDRTonemap(color);
-//   float y1 = ReinhardPiecewiseExtended(y, white_clip, peak, shoulder);
-//   color *= y1 / max(y, 0.000001);
-
-  return color;
-}
-
 // NeuTwo ///////////////////////////////////////////////////////////////////////////
 #if RENODX_HDRTONEMAP_TYPE == RENODX_HDRTONEMAP_TYPE_NEUTWO
 // https://github.com/clshortfuse/renodx/blob/main/src/shaders/tonemap/neutwo.hlsl
@@ -3149,6 +3125,40 @@ vec3 ToneMapPass_Frostbite(vec3 color) {
 // }
 // #endif
 
+// Psycho11 ///////////////////////////////////////////////////////////////////////////
+#if RENODX_HDRTONEMAP_TYPE == RENODX_HDRTONEMAP_TYPE_PSYCHO11
+#include "./renodx_psycho_test11.glsl"
+
+vec3 ToneMapPass_Psycho11(vec3 color) {
+
+  //do
+  color = ColorSpaceConversion(color, RENODX_WORKINGCS_SHADERPACK, RENODX_CS_BT2020);
+  color = max(vec3(0), color); //clamp
+  #if RENODX_SCALING == RENODX_SCALING_Y || RENODX_SCALING == RENODX_SCALING_MAXCHANNEL
+    color = vec3(1,0,1);
+  #else
+    color = psychotm_test11(
+      color,
+      /* peak_value = */ RENODX_PEAK_BRIGHTNESS / RENODX_GAME_BRIGHTNESS,
+      /* exposure = 1.f, */
+      /* highlights = */ 1.f,
+      /* shadows = */ 1.f,
+      /* contrast = */ 1.f,
+      /* purity_scale = */ 1.f,
+      /* bleaching_intensity = */ 0.f,
+      /* clip_point = */ 100.f/* RENODX_WHITE_CLIP / RENODX_GAME_BRIGHTNESS */,
+      /* hue_restore = */ 0.5f, //0.5 seems pushing it.
+      /* adaptation_contrast = */ 1.f,
+      /* white_curve_mode = */ 0, //0 aggressive, 1 gradual
+      /* cone_response_exponent = */ 1.f
+    );
+  #endif
+  color = ColorSpaceConversion(color, RENODX_CS_BT2020, RENODX_WORKINGCS_HDRTONEMAP);
+
+  return color;
+}
+#endif
+
 // None ///////////////////////////////////////////////////////////////////////////
 vec3 ToneMapPass_None(vec3 color) {
   color = ColorSpaceConversion(color, RENODX_WORKINGCS_SHADERPACK, RENODX_WORKINGCS_AFTERTONEMAP);
@@ -3216,8 +3226,8 @@ vec3 ToneMapPass(vec3 color_untonemapped, vec3 color_tonemapped, vec2 uv) {
       result = ToneMapPass_Frostbite(result);
     // #elif RENODX_HDRTONEMAP_TYPE == RENODX_HDRTONEMAP_TYPE_DANIELE
     //   result = ToneMapPass_Daniele(result);
-    #elif RENODX_HDRTONEMAP_TYPE == RENODX_HDRTONEMAP_TYPE_CUSTOM1
-      result = ToneMapPass_Custom0(result);
+    #elif RENODX_HDRTONEMAP_TYPE == RENODX_HDRTONEMAP_TYPE_PSYCHO11
+      result = ToneMapPass_Psycho11(result);
     #else
       result = ToneMapPass_None(result);
     #endif
