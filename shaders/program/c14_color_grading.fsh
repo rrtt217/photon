@@ -174,12 +174,13 @@ float vignette(vec2 uv) {
 
     float darkness_pulse = 1.0 - dampen(abs(cos(2.0 * frameTimeCounter)));
 
-    float vignette =
-        vignette_size * (uv.x * uv.y - uv.x) * (uv.x * uv.y - uv.y);
-    vignette =
-        pow(vignette,
-            vignette_intensity + 0.1 * biome_cave + 0.3 * blindness +
-                0.2 * darkness_pulse * darknessFactor);
+    float vignette
+        = vignette_size * (uv.x * uv.y - uv.x) * (uv.x * uv.y - uv.y);
+    vignette = pow(
+        vignette,
+        vignette_intensity + 0.1 * biome_cave + 0.3 * blindness
+            + 0.2 * darkness_pulse * darknessFactor
+    );
 
     return vignette;
 }
@@ -200,10 +201,11 @@ void main() {
 
 #ifdef BLOOMY_FOG
     float fog_transmittance = texture(colortex3, uv * taau_render_scale).x;
-    scene_color =
-        mix(fog_bloom,
-            scene_color,
-            pow(fog_transmittance, BLOOMY_FOG_INTENSITY));
+    scene_color = mix(
+        fog_bloom,
+        scene_color,
+        pow(fog_transmittance, BLOOMY_FOG_INTENSITY)
+    );
 #endif
 #endif
 
