@@ -40,12 +40,24 @@ uniform float eye_skylight;
 
 uniform vec2 view_pixel_size;
 
+#if defined HDR_MOD_INSTALLED && defined HDR_ENABLED
+uniform float HdrGamePeakBrightness;
+uniform float HdrGamePaperWhiteBrightness;
+uniform float HdrGameMinimumBrightness;
+uniform float HdrUIBrightness;
+#endif
+
 #include "/include/post_processing/tonemap_operators.glsl"
 #include "/include/utility/bicubic.glsl"
 #include "/include/utility/color.glsl"
 
+// Invertible tonemapping operator (Reinhard)
+vec3 reinhard(vec3 rgb) { return rgb / (rgb + 1.0); }
+
+vec3 reinhard_inverse(vec3 rgb) { return rgb / (1.0 - rgb); }
+
 vec3 get_bloom() {
-    // Upsample last bloom tile. 
+    // Upsample last bloom tile.
 
     vec2 pad_amount = 6.0 * view_pixel_size;
     vec2 uv_src = clamp(uv, pad_amount, 1.0 - pad_amount) * 0.5;
@@ -96,8 +108,13 @@ vec3 grade_input(vec3 rgb) {
 // rgb := color in linear rec.709 [0, 1]
 vec3 grade_output(vec3 rgb) {
     // Convert to roughly perceptual RGB for color grading
+    
+    #ifdef HDR_ENABLED
+        rgb = reinhard(rgb);
+    #endif
+    
     rgb = sqrt(rgb);
-
+    
     // HSL color grading inspired by Tech's color grading setup in Lux Shaders
 
     const float orange_sat_boost = GRADE_ORANGE_SAT_BOOST;
@@ -124,7 +141,13 @@ vec3 grade_output(vec3 rgb) {
 
     rgb = gain(rgb, 1.05);
 
-    return sqr(rgb);
+    rgb = sqr(rgb);
+
+    #ifdef HDR_ENABLED
+        return reinhard_inverse(rgb);
+    #else
+        return rgb;
+    #endif
 }
 
 float vignette(vec2 uv) {
@@ -159,12 +182,8 @@ void main() {
 
 #ifdef BLOOMY_FOG
     float fog_transmittance = texture(colortex3, uv * taau_render_scale).x;
-    scene_color = mix(
-        bloom,
-        scene_color,
-        pow(fog_transmittance, BLOOMY_FOG_INTENSITY)
-    );
-#endif
+    scene_color
+        = mix(bloom, scene_color, pow(fog_transmittance, BLOOMY_FOG_INTENSITY));
 #endif
 
     scene_color *= exposure;
@@ -179,11 +198,19 @@ void main() {
     scene_color
         = uv.x < 0.5 ? tonemap_left(scene_color) : tonemap_right(scene_color);
 #else
+#ifdef HDR_ENABLED
+    scene_color = hdr_tonemap(scene_color);
+#else
     scene_color = tonemap(scene_color);
 #endif
-
+#endif
+#ifdef HDR_ENABLED
+    scene_color = grade_output(scene_color);
+    scene_color = scene_color * working_to_display_color;
+#else
     scene_color = clamp01(scene_color * working_to_display_color);
     scene_color = grade_output(scene_color);
+#endif
 
 #if 0 // Tonemap plot
 	const float scale = 2.0;
