@@ -110,7 +110,7 @@ vec3 reinhard_piecewise_extended(
     extended = min(extended, x_max);
     return mix(x, extended, step(shoulder, x));
 }
-#ifdef HDR_ENABLED
+
 vec3 tonemap_reinhard(vec3 rgb) {
     return sign(rgb)
         * reinhard_piecewise_extended(
@@ -120,7 +120,32 @@ vec3 tonemap_reinhard(vec3 rgb) {
                36.0 / HdrGamePaperWhiteBrightness
         );
 }
+
+vec3 tonemap_lottes_emulate(vec3 rgb) { 
+    const float P = HdrGamePeakBrightness / HdrGamePaperWhiteBrightness;
+    const float w = 20000 / HdrGamePaperWhiteBrightness;
+
+    //midgray change
+    rgb *= 1.15;
+
+    //toe
+    const float toe_thres = 530 / 203.f;
+    rgb /= toe_thres;
+    vec3 rgb_back = rgb;
+    bvec3 thres = greaterThan(rgb, vec3(1));
+    rgb = srgb_eotf_hq(rgb);
+    rgb = pow(rgb, vec3(2.2));
+    rgb = mix(rgb, rgb_back, thres);
+    rgb *= toe_thres;
+
+    rgb = reinhard_extended(rgb, w, P);
+    rgb = min(rgb, vec3(P));
+
+    return rgb;
+}
 #endif
+
+#ifdef HDR_ENABLED
 float apply_hable_curve(
     float x,
     float a,
@@ -572,45 +597,6 @@ vec3 tonemap_reinhard_jodie(vec3 rgb) {
     return mix(rgb / (dot(rgb, luminance_weights) + 1.0), reinhard, reinhard);
 }
 
-#ifdef HDR_ENABLED
-// Uchimura 2018, "Practical HDR and Wide Color Techniques in Gran Turismo SPORT"
-// https://www.desmos.com/calculator/gslcdxvipg
-// http://cdn2.gran-turismo.com/data/www/pdi_publications/PracticalHDRandWCGinGTS.pdf
-vec3 tonemap_gt_internal(vec3 x, float P, float a, float m, float l, float c, float b, float l0, float L0, float L1) {                            
-  vec3 S0 = vec3(m + l0);                    
-  vec3 S1 = vec3(m + a * l0);                
-  vec3 C2 = vec3((a * P) / (P - S1));        
-  vec3 CP = vec3(-C2 / P);                   
-                                       
-  vec3 w0 = 1.0f - smoothstep(vec3(0.0f), vec3(m), x);     
-  vec3 w2 = step(vec3(m + l0), x); 
-  vec3 w1 = vec3(1.0f) - w0 - w2;
-  
-  vec3 T_ = m * pow(x / m, vec3(c)) + b;
-  vec3 S_ = P - (P - S1) * exp(CP * (x - S0));
-  vec3 L_ = m + a * (x - m); 
-                                            
-  return T_ * w0 + L_ * w1 + S_ * w2;
-}
-vec3 tonemap_gt(vec3 rgb) { 
-    const float P = HdrGamePeakBrightness / HdrGamePaperWhiteBrightness;
-
-    //Aimed for SDR Lottes
-    const float a = 0.9f; //contrast
-    const float m = 0.26f; //midgray start
-    const float l = 0.1f; //linear length
-    const float c = 1.3f; //toe strength
-    const float b = 0.f; //black raise
-
-    const float l0 = ((P - m) * l) / a;
-    const float L0 = m - (m / a);
-    const float L1 = m + (1.0f - m) / a;
-
-    rgb *= 1.2; //fudge
-
-    return tonemap_gt_internal(rgb, P, a, m, l, c, b, l0, L0, L1);
-}
-#endif
 
 vec3 tonemap_none(vec3 rgb) { return rgb; }
 
