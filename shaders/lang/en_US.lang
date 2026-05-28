@@ -821,12 +821,9 @@ option.HDR_ENABLED_ALLOW.comment               = Disable to force SDR path, even
 option.hdr_tonemap                             = HDR Tonemap Operator
 option.hdr_tonemap.comment                     = Choose the algorithm to compress HDR values for display.
 value.hdr_tonemap.tonemap_aces_full            = ACES Full
-#value.hdr_tonemap.tonemap_aces_full.comment    = Perceptual, known for it's signature highlights hue shifting.
 value.hdr_tonemap.tonemap_uncharted_2          = Uncharted 2
-#value.hdr_tonemap.tonemap_uncharted_2.comment  = Hable / Uncharted 2 extended with advanced calculus
 value.hdr_tonemap.tonemap_reinhard             = Reinhard Piecewise Extended
-#value.hdr_tonemap.tonemap_reinhard.comment     = Gradual neutral Reinhard, extended and high passed to maintain mid gray
 value.hdr_tonemap.tonemap_gt                   = Gran Turismo Sport
-#value.hdr_tonemap.tonemap_gt.comment           = With toe, aimed to match SDR Lottes
+value.hdr_tonemap.tonemap_lottes_emulate       = Lottes Emulated
 value.hdr_tonemap.tonemap_none                 = None
 
