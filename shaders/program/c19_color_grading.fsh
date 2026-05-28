@@ -53,10 +53,8 @@ uniform float HdrUIBrightness;
 
 // Invertible tonemapping operator (Reinhard)
 vec3 reinhard(vec3 rgb) { return rgb / (rgb + 1.0); }
-float reinhard(float rgb) { return rgb / (rgb + 1.0); }
 
 vec3 reinhard_inverse(vec3 rgb) { return rgb / (1.0 - rgb); }
-float reinhard_inverse(float rgb) { return rgb / (1.0 - rgb); }
 
 vec3 get_bloom() {
     // Upsample last bloom tile.
