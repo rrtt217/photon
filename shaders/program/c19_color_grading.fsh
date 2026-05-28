@@ -108,13 +108,8 @@ vec3 grade_input(vec3 rgb) {
 // rgb := color in linear rec.709 [0, 1]
 vec3 grade_output(vec3 rgb) {
     // Convert to roughly perceptual RGB for color grading
-    
-    #ifdef HDR_ENABLED
-        rgb = reinhard(rgb);
-    #endif
-    
     rgb = sqrt(rgb);
-    
+
     // HSL color grading inspired by Tech's color grading setup in Lux Shaders
 
     const float orange_sat_boost = GRADE_ORANGE_SAT_BOOST;
@@ -139,15 +134,11 @@ vec3 grade_output(vec3 rgb) {
 
     rgb = hsl_to_rgb(hsl);
 
-    rgb = gain(rgb, 1.05);
-
-    rgb = sqr(rgb);
-
-    #ifdef HDR_ENABLED
-        return reinhard_inverse(rgb);
-    #else
-        return rgb;
+    #ifndef HDR_ENABLED
+        rgb = gain(rgb, 1.05);
     #endif
+
+    return sqr(rgb);
 }
 
 float vignette(vec2 uv) {
@@ -185,6 +176,7 @@ void main() {
     scene_color
         = mix(bloom, scene_color, pow(fog_transmittance, BLOOMY_FOG_INTENSITY));
 #endif
+#endif
 
     scene_color *= exposure;
 
@@ -194,22 +186,31 @@ void main() {
 
     scene_color = grade_input(scene_color);
 
-#ifdef TONEMAP_COMPARISON
-    scene_color
-        = uv.x < 0.5 ? tonemap_left(scene_color) : tonemap_right(scene_color);
+    // SDR/HDR output splits here!
+
+#ifndef HDR_ENABLED
+    #ifdef TONEMAP_COMPARISON
+        scene_color
+            = uv.x < 0.5 ? tonemap_left(scene_color) : tonemap_right(scene_color);
+    #else
+        scene_color = tonemap(scene_color);
+    #endif
 #else
-#ifdef HDR_ENABLED
     scene_color = hdr_tonemap(scene_color);
-#else
-    scene_color = tonemap(scene_color);
+    // TODO: HDR TONEMAP_COMPARISON?
 #endif
-#endif
-#ifdef HDR_ENABLED
-    scene_color = grade_output(scene_color);
-    scene_color = scene_color * working_to_display_color;
-#else
+
+#ifndef HDR_ENABLED
     scene_color = clamp01(scene_color * working_to_display_color);
     scene_color = grade_output(scene_color);
+#else
+    // TODO: not ideal ramming HDR color into LDR color grade
+    scene_color = reinhard(scene_color);
+    scene_color = grade_output(scene_color);
+    scene_color = reinhard_inverse(scene_color);
+
+    // Unlike SDR path, maintain clamped rec2020 for the subsequent colorspace agnostic passes until final.
+    scene_color = max(scene_color, vec3(0));
 #endif
 
 #if 0 // Tonemap plot

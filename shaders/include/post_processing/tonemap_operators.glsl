@@ -14,7 +14,6 @@ vec3 tonemap_aces_full(vec3 rgb) {
     rgb = aces_output_transform(rgb, 0.0001f, 15.0f, HdrGamePeakBrightness)
         * HdrGamePeakBrightness / HdrGamePaperWhiteBrightness;
 #else
-
     rgb = aces_rrt(rgb);
     rgb = aces_odt(rgb);
 #endif
@@ -93,7 +92,7 @@ float compute_reinhard_extendable_scale(
 }
 
 vec3 reinhard_piecewise_extended(
-    vec3 x,
+    vec3  x,
     float white_max,
     float x_max,
     float shoulder
@@ -111,7 +110,7 @@ vec3 reinhard_piecewise_extended(
     extended = min(extended, x_max);
     return mix(x, extended, step(shoulder, x));
 }
-#ifdef HDR_ENABLED
+
 vec3 tonemap_reinhard(vec3 rgb) {
     return sign(rgb)
         * reinhard_piecewise_extended(
@@ -121,7 +120,35 @@ vec3 tonemap_reinhard(vec3 rgb) {
                36.0 / HdrGamePaperWhiteBrightness
         );
 }
+
+vec3 tonemap_lottes_emulate(vec3 rgb) { 
+    const float P = HdrGamePeakBrightness / HdrGamePaperWhiteBrightness;
+    const float w = 20000 / HdrGamePaperWhiteBrightness;
+
+    //midgray change
+    rgb *= 1.2;
+
+    //contrast change
+    rgb = pow(rgb, vec3(1.075));
+
+    //toe
+    const float toe_thres = 360 / 203.f;
+    rgb /= toe_thres;
+    vec3 rgb_back = rgb;
+    bvec3 thres = greaterThan(rgb, vec3(1));
+    rgb = srgb_eotf_hq(rgb);
+    rgb = pow(rgb, vec3(2.2));
+    rgb = mix(rgb, rgb_back, thres);
+    rgb *= toe_thres;
+
+    rgb = reinhard_extended(rgb, w, P);
+    rgb = min(rgb, vec3(P));
+
+    return rgb;
+}
 #endif
+
+#ifdef HDR_ENABLED
 float apply_hable_curve(
     float x,
     float a,
@@ -138,7 +165,7 @@ float apply_hable_curve(
 }
 
 vec3 apply_hable_curve(
-    vec3 x,
+    vec3  x,
     float a,
     float b,
     float c,
@@ -188,7 +215,7 @@ float apply_hable_inverse_uncharted2(
 }
 
 vec3 apply_hable_inverse_uncharted2(
-    vec3 color,
+    vec3  color,
     float w,
     float a,
     float b,
@@ -572,6 +599,7 @@ vec3 tonemap_reinhard_jodie(vec3 rgb) {
     vec3 reinhard = rgb / (rgb + 1.0);
     return mix(rgb / (dot(rgb, luminance_weights) + 1.0), reinhard, reinhard);
 }
+
 
 vec3 tonemap_none(vec3 rgb) { return rgb; }
 
