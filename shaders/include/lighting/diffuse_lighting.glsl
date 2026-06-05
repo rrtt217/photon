@@ -25,7 +25,7 @@
 #endif
 
 #if defined PHOTONICS_DIFFUSE
-#include "/photonics/ph_samplers.glsl"
+#include "/photonics/samplers.glsl"
 
 #ifndef PHOTONICS_RESTIR_COMBINED_GI
 uniform sampler2D radiosity_indirect;

@@ -4,26 +4,27 @@ uniform float worldTime;
 uniform sampler2D colortex4;
 
 const float blocklight_scale = 6.0f;
+const float rcp_blocklight_scale = 1.0f /blocklight_scale;
 
 vec3 get_sun_direction() {
     return light_dir;
 }
 
-const float rcp_blocklight_scale = 1/blocklight_scale;
-
-vec3 get_sun_color() {
-    #if defined OVERWORLD
-        #ifdef SH_SKYLIGHT
-            return texelFetch(colortex4, ivec2(191, 11), 0).rgb * rcp_blocklight_scale * SKYLIGHT_I;
-        #else
-            return texelFetch(colortex4, ivec2(191, 1), 0).rgb * rcp_blocklight_scale * SKYLIGHT_I;
-        #endif
-    #else
-        return mix(texelFetch(colortex4, ivec2(191, 1), 0).rgb, vec3(1.0f), 0.5) * rcp_blocklight_scale * SKYLIGHT_I;
-    #endif
+vec3 get_sky_color(vec3 player_pos, vec3 direction) {
+#if defined OVERWORLD
+#ifdef SH_SKYLIGHT
+    return texelFetch(colortex4, ivec2(191, 11), 0).rgb * rcp_blocklight_scale * SKYLIGHT_I;
+#else
+    return texelFetch(colortex4, ivec2(191, 1), 0).rgb * rcp_blocklight_scale * SKYLIGHT_I;
+#endif
+#else
+    return mix(texelFetch(colortex4, ivec2(191, 1), 0).rgb, vec3(1.0f), 0.5) * rcp_blocklight_scale * SKYLIGHT_I;
+#endif
 }
 
-#define get_sky_color get_sun_color
+vec3 get_sun_color(vec3 player_pos, vec3 directioin) {
+    return get_sky_color(player_pos, directioin) * 4.0f;
+}
 
 #if defined OVERWORLD
 
