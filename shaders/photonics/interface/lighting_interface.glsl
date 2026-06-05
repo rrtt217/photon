@@ -10,20 +10,25 @@ vec3 get_sun_direction() {
     return light_dir;
 }
 
-vec3 get_sky_color(vec3 player_pos, vec3 direction) {
+vec3 get_light_color() {
 #if defined OVERWORLD
 #ifdef SH_SKYLIGHT
-    return texelFetch(colortex4, ivec2(191, 11), 0).rgb * rcp_blocklight_scale * SKYLIGHT_I;
+    return texelFetch(colortex4, ivec2(191, 11), 0).rgb * rcp_blocklight_scale;
 #else
-    return texelFetch(colortex4, ivec2(191, 1), 0).rgb * rcp_blocklight_scale * SKYLIGHT_I;
+    return texelFetch(colortex4, ivec2(191, 1), 0).rgb * rcp_blocklight_scale;
 #endif
 #else
-    return mix(texelFetch(colortex4, ivec2(191, 1), 0).rgb, vec3(1.0f), 0.5) * rcp_blocklight_scale * SKYLIGHT_I;
+    return mix(texelFetch(colortex4, ivec2(191, 1), 0).rgb, vec3(1.0f), 0.5) * rcp_blocklight_scale;
 #endif
 }
 
+vec3 get_sky_color(vec3 player_pos, vec3 direction) {
+    const float sun_inverse = 1.0f / SUN_I;
+    return get_light_color() * sun_inverse * SKYLIGHT_I * 0.5f;
+}
+
 vec3 get_sun_color(vec3 player_pos, vec3 directioin) {
-    return get_sky_color(player_pos, directioin) * 4.0f;
+    return get_light_color() * BOUNCED_LIGHT_I;
 }
 
 #if defined OVERWORLD

@@ -29,5 +29,5 @@ bool is_in_shadow_at(vec3 scene_pos, vec3 geo_normal) {
         sss_depth
     );
 
-    return shadow != vec3(0.0f);
+    return any(lessThan(shadow, vec3(1.0f)));
 }
